@@ -89,19 +89,13 @@ flowchart LR
 | 7 | `assistant_text` "Done!..." | bubble |
 | 8 | `done` | `happy` hop, then back to `idle` |
 
-### Threading
-
-Qt owns the main thread. The agent runs its own asyncio loop on a background thread
-(`AgentRunner`). Events cross over through a Qt `Signal` (queued automatically), and permission
-answers go back with `loop.call_soon_threadsafe`. Sync tools run in `asyncio.to_thread`, so a slow
-tool never freezes the animation.
 
 ## Project layout
 
 ```
-main.py                    entry point, wires everything together
+main.py                    
 bitty/
-  events.py                event names + EventBus (the shared vocabulary)
+  events.py                event names + EventBus 
   agent.py                 agent loop, tool execution, permission flow, AgentRunner
   backends.py              MockBackend (offline) and AnthropicBackend
   tools.py                 @tool decorator + ToolRegistry (schema from type hints)
@@ -114,62 +108,3 @@ assets/
   sprites/blob.{png,json}  sprite sheet + manifest
 tests/test_core.py         tests for the non-UI core
 ```
-
-## Make it yours
-
-**Add a tool.** Type hints become the JSON schema; the docstring becomes the description.
-
-```python
-@tool(tier="ask", state="working:write")   # tier="safe" runs without asking
-def open_url(url: str) -> str:
-    """Open a URL in the default browser."""
-    ...
-```
-
-Register it in `main.py` with `registry.register(open_url)`.
-
-**Add an animation.** Draw a new row in the sheet and add it to the manifest:
-
-```json
-"happy": {"row": 5, "frames": 4, "fps": 6, "loop": false, "next": "idle"}
-```
-
-One-shot states play once, then jump to `next`. If a tool asks for `working:search` and your
-sheet has no such row, Bitty falls back to `working`.
-
-**Use your own art.** One row per state, one column per frame, equal-sized frames (Aseprite,
-LibreSprite and Piskel all work). Point a manifest at it and run
-`python main.py --sprites path/to/your.json`. Regenerate the placeholder with
-`python assets/make_placeholder.py`.
-
-**Add a channel** (CLI, Telegram, Discord...). Call `runner.submit(text)` to send input and
-`bus.subscribe(fn)` to receive replies. The agent never changes.
-
-**Add a model provider.** A backend is one method:
-`async step(history, tools, system) -> Response(text, tool_calls)`. History uses Anthropic's
-content-block format internally.
-
-## Safety
-
-- `tier="ask"` tools never run without a click on Allow; no answer within 2 minutes counts as Deny.
-- Never commit your API key. Use an environment variable and keep any `.env` file out of git.
-- Keep powerful tools (shell, file writes, sending messages) on `ask`.
-
-## Roadmap
-
-- [ ] Streaming replies (currently the full reply appears at once)
-- [ ] Global hotkey to summon the input box
-- [ ] Persistent memory across sessions
-- [ ] More channels (CLI, Telegram)
-- [ ] Walk cycle and wandering around the screen
-- [ ] Input focus on some platforms (macOS) may need tuning for frameless tool windows
-
-## Tests
-
-```bash
-python -m unittest discover -s tests
-```
-
-## License
-
-Pick one (MIT is a common choice for personal projects).
